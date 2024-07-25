@@ -163,7 +163,7 @@ class Agent:
         self.safe_to_delete = False
         self.species = species_ref
         self.simmap = simmap
-        self.age = random.uniform(0, self.species['max_longevity'] * 30)
+        self.age = 0  # Start all agents at age 0
         self.max_age = self.species['max_longevity'] * 30 * random.uniform(0.5, 1)
         self.starvation_days = 0
         self.location = [0, 0]
