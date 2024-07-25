@@ -13,6 +13,7 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+DECAY_RATE = 0.01  # Rate at which dead bodies decay
 
 # Create screen
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -83,8 +84,8 @@ class Map:
     def simulate_agents(self):
         for agent in self.agents:
             agent.update()
-        # Remove dead agents from the list (if you want to clean up dead agents later)
-        # self.agents = [agent for agent in self.agents if agent.alive]
+        # Remove fully decayed agents from the list
+        self.agents = [agent for agent in self.agents if agent.alive or agent.meat_calories > 0]
 
 class ResourceBlock:
     def __init__(self, x, y, regen_rate):
@@ -109,27 +110,44 @@ class Agent:
         self.move_distance_in_pixels = self.move_distance * 0.5  # Further reduce speed
         self.last_reproduce = 100000
         self.meat_calories = self.species['adult_body_mass'] * 1500
+        self.decay_rate = DECAY_RATE
 
     def draw(self):
         if not self.alive:
-            color = BLACK
+            decay_factor = self.meat_calories / (self.species['adult_body_mass'] * 1500)
+            alpha = max(0, int(decay_factor * 255))  # Ensure alpha is between 0 and 255
+            color = (0, 0, 0, alpha)
+
+            # Create a temporary surface with alpha channel
+            temp_surface = pygame.Surface((4, 4), pygame.SRCALPHA)
+            temp_surface.set_alpha(alpha)
+            temp_surface.fill((0, 0, 0, 0))  # Fill with transparent color
+            pygame.draw.circle(temp_surface, (0, 0, 0), (2, 2), 2)
+            screen.blit(temp_surface, (int(self.location[0]) - 2, int(self.location[1]) - 2))
+
         elif self.species['diet'] == "herbivore":
             color = GREEN
+            pygame.draw.circle(screen, color, (int(self.location[0]), int(self.location[1])), 2)
         else:
             color = RED
-        pygame.draw.circle(screen, color, (int(self.location[0]), int(self.location[1])), 2)
+            pygame.draw.circle(screen, color, (int(self.location[0]), int(self.location[1])), 2)
 
     def update(self):
         self.age += 1
         if self.age > self.max_age or self.starvation_days > 30:
             self.alive = False
-        if self.species['diet'] == "herbivore":
-            self.feed_plant()
-        else:
-            self.feed_meat()
-        if self.age > self.species['age_at_first_birth'] and self.starvation_days < 10 and random.random() < 0.01:
-            self.reproduce()
-        self.move()
+
+        if not self.alive:
+            self.decay()
+
+        if self.alive:
+            if self.species['diet'] == "herbivore":
+                self.feed_plant()
+            else:
+                self.feed_meat()
+            if self.age > self.species['age_at_first_birth'] and self.starvation_days < 10 and random.random() < 0.01:
+                self.reproduce()
+            self.move()
 
     def move(self):
         if not self.alive:
@@ -156,7 +174,7 @@ class Agent:
     def find_nearby_agents(self, distance):
         nearby_agents = []
         for agent in self.simmap.agents:
-            if agent is not self and agent.alive:
+            if agent is not self and (agent.alive or agent.meat_calories > 0):
                 dist = math.sqrt((self.location[0] - agent.location[0])**2 + (self.location[1] - agent.location[1])**2)
                 if dist <= distance:
                     nearby_agents.append(agent)
@@ -169,12 +187,21 @@ class Agent:
     def feed_meat(self):
         nearby_agents = self.find_nearby_agents(10)  # Define a suitable distance for hunting
         for agent in nearby_agents:
-            if agent.species['diet'] == "herbivore":
+            if agent.species['diet'] == "herbivore" and agent.alive:
                 agent.alive = False
                 self.starvation_days = 0
+                self.meat_calories += agent.meat_calories * 0.5  # Gain half of the herbivore's meat calories
+                break
+            elif not agent.alive and agent.meat_calories > 0:
+                self.starvation_days = 0
+                self.meat_calories += agent.meat_calories * 0.5  # Gain half of the decayed meat calories
+                agent.meat_calories *= 0.5  # Decay the meat calories
                 break
         else:
             self.starvation_days += 1
+
+    def decay(self):
+        self.meat_calories -= self.meat_calories * self.decay_rate
 
     def reproduce(self):
         # Implement reproduction logic
