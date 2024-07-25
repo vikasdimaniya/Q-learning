@@ -27,15 +27,42 @@ species_counts = {
     "wolf": []
 }
 
+# Define regions
+regions = {
+    "ocean": {
+        "altitude_range": [-1.0, 0.2],
+        "color": (59, 179, 200)
+    },
+    "shallows": {
+        "altitude_range": [0.2, 0.3],
+        "color": (194, 178, 128)
+    },
+    "grassland": {
+        "altitude_range": [0.3, 0.5],
+        "color": (100, 120, 60)
+    },
+    "forest": {
+        "altitude_range": [0.5, 0.7],
+        "color": (90, 90, 60)
+    },
+    "mountain": {
+        "altitude_range": [0.7, 0.85],
+        "color": (90, 70, 60)
+    },
+    "snow": {
+        "altitude_range": [0.85, 1.0],
+        "color": (255, 255, 255)
+    }
+}
+
 class Map:
     def __init__(self, seed):
         self.size = 200
         self.pixels = 400
         self.scale = self.pixels / self.size
-        self.noise_scale = 0.03
+        self.noise_scale = 0.1  # Adjust noise scale for detailed island
         self.regen_multiplier = 1500
         self.agents = []
-        self.checkerboard_offset = [0, 0]
         self.seed = seed
         random.seed(seed)
         self.init_resource_generation()
@@ -44,9 +71,23 @@ class Map:
     def draw(self):
         for x in range(self.pixels):
             for y in range(self.pixels):
-                value = noise.pnoise2(x * self.noise_scale, y * self.noise_scale, octaves=1)
-                color_value = int((value + 1) / 2 * 255)
-                pygame.draw.rect(screen, (color_value, color_value, color_value), (x, y, 1, 1))
+                value = noise.pnoise2(x * self.noise_scale, y * self.noise_scale, octaves=6, persistence=0.5, lacunarity=2.0, repeatx=1024, repeaty=1024, base=self.seed)
+                falloff = self.radial_falloff(x, y)
+                value = (value - falloff) * 2.5  # Adjust to ensure more land
+                region = self.get_region(value)
+                color = regions[region]["color"]
+                pygame.draw.rect(screen, color, (x, y, 1, 1))
+
+    def radial_falloff(self, x, y):
+        nx = x / self.pixels * 2 - 1
+        ny = y / self.pixels * 2 - 1
+        return max(0, (math.sqrt(nx * nx + ny * ny) - 0.3))  # Adjusted falloff to reduce ocean
+
+    def get_region(self, value):
+        for region, properties in regions.items():
+            if properties["altitude_range"][0] <= value < properties["altitude_range"][1]:
+                return region
+        return "ocean"
 
     def init_resource_generation(self):
         self.resource_blocks = []
@@ -75,7 +116,13 @@ class Map:
         while True:
             x = random.randint(0, self.pixels - 1)
             y = random.randint(0, self.pixels - 1)
-            return [x, y]
+            if self.get_region(self.get_noise_value(x, y)) != "ocean":
+                return [x, y]
+
+    def get_noise_value(self, x, y):
+        value = noise.pnoise2(x * self.noise_scale, y * self.noise_scale, octaves=6, persistence=0.5, lacunarity=2.0, repeatx=1024, repeaty=1024, base=self.seed)
+        falloff = self.radial_falloff(x, y)
+        return (value - falloff) * 2.5
 
     def draw_agents(self):
         for agent in self.agents:
@@ -84,7 +131,6 @@ class Map:
     def simulate_agents(self):
         for agent in self.agents:
             agent.update()
-        # Remove fully decayed agents from the list
         self.agents = [agent for agent in self.agents if agent.alive or agent.meat_calories > 0]
 
 class ResourceBlock:
@@ -101,13 +147,13 @@ class Agent:
         self.safe_to_delete = False
         self.species = species_ref
         self.simmap = simmap
-        self.age = random.uniform(0, self.species['max_longevity'] * 30)  # Ensure age is within lifespan
-        self.max_age = self.species['max_longevity'] * 30 * random.uniform(0.5, 1)  # Ensure max_age is a reasonable fraction of the max longevity
+        self.age = random.uniform(0, self.species['max_longevity'] * 30)
+        self.max_age = self.species['max_longevity'] * 30 * random.uniform(0.5, 1)
         self.starvation_days = 0
         self.location = [0, 0]
         self.sex = "male" if random.random() > 0.5 else "female"
-        self.move_distance = math.sqrt(self.species['home_range']) * 0.5  # Reduced speed further
-        self.move_distance_in_pixels = self.move_distance * 0.5  # Further reduce speed
+        self.move_distance = math.sqrt(self.species['home_range']) * 0.5
+        self.move_distance_in_pixels = self.move_distance * 0.5
         self.last_reproduce = 100000
         self.meat_calories = self.species['adult_body_mass'] * 1500
         self.decay_rate = DECAY_RATE
@@ -115,13 +161,12 @@ class Agent:
     def draw(self):
         if not self.alive:
             decay_factor = self.meat_calories / (self.species['adult_body_mass'] * 1500)
-            alpha = max(0, int(decay_factor * 255))  # Ensure alpha is between 0 and 255
+            alpha = max(0, int(decay_factor * 255))
             color = (0, 0, 0, alpha)
 
-            # Create a temporary surface with alpha channel
             temp_surface = pygame.Surface((4, 4), pygame.SRCALPHA)
             temp_surface.set_alpha(alpha)
-            temp_surface.fill((0, 0, 0, 0))  # Fill with transparent color
+            temp_surface.fill((0, 0, 0, 0))
             pygame.draw.circle(temp_surface, (0, 0, 0), (2, 2), 2)
             screen.blit(temp_surface, (int(self.location[0]) - 2, int(self.location[1]) - 2))
 
@@ -151,24 +196,22 @@ class Agent:
 
     def move(self):
         if not self.alive:
-            return  # Dead agents don't move
+            return
 
         angle = random.uniform(0, 2 * math.pi)
         new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
         new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
-        
-        # Reflect direction if out of bounds
+
         if new_x < 0 or new_x >= WIDTH:
             angle = math.pi - angle
             new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
         if new_y < 0 or new_y >= HEIGHT:
             angle = -angle
             new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
-        
-        # Ensure the new position is within bounds
+
         new_x = max(0, min(WIDTH-1, new_x))
         new_y = max(0, min(HEIGHT-1, new_y))
-        
+
         self.location = [new_x, new_y]
 
     def find_nearby_agents(self, distance):
@@ -181,21 +224,20 @@ class Agent:
         return nearby_agents
 
     def feed_plant(self):
-        # Implement plant feeding logic
         pass
 
     def feed_meat(self):
-        nearby_agents = self.find_nearby_agents(10)  # Define a suitable distance for hunting
+        nearby_agents = self.find_nearby_agents(10)
         for agent in nearby_agents:
             if agent.species['diet'] == "herbivore" and agent.alive:
                 agent.alive = False
                 self.starvation_days = 0
-                self.meat_calories += agent.meat_calories * 0.5  # Gain half of the herbivore's meat calories
+                self.meat_calories += agent.meat_calories * 0.5
                 break
             elif not agent.alive and agent.meat_calories > 0:
                 self.starvation_days = 0
-                self.meat_calories += agent.meat_calories * 0.5  # Gain half of the decayed meat calories
-                agent.meat_calories *= 0.5  # Decay the meat calories
+                self.meat_calories += agent.meat_calories * 0.5
+                agent.meat_calories *= 0.5
                 break
         else:
             self.starvation_days += 1
@@ -204,7 +246,6 @@ class Agent:
         self.meat_calories -= self.meat_calories * self.decay_rate
 
     def reproduce(self):
-        # Implement reproduction logic
         pass
 
 species_ref = {
