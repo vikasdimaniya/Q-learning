@@ -216,21 +216,22 @@ class Agent:
         if not self.alive:
             return
 
-        angle = random.uniform(0, 2 * math.pi)
-        new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
-        new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
-
-        if new_x < 0 or new_x >= WIDTH:
-            angle = math.pi - angle
+        for _ in range(10):  # Try up to 10 times to find a valid move
+            angle = random.uniform(0, 2 * math.pi)
             new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
-        if new_y < 0 or new_y >= HEIGHT:
-            angle = -angle
             new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
 
-        new_x = max(0, min(WIDTH-1, new_x))
-        new_y = max(0, min(HEIGHT-1, new_y))
+            if new_x < 0 or new_x >= WIDTH:
+                continue
+            if new_y < 0 or new_y >= HEIGHT:
+                continue
 
-        self.location = [new_x, new_y]
+            new_x = max(0, min(WIDTH-1, new_x))
+            new_y = max(0, min(HEIGHT-1, new_y))
+
+            if self.simmap.get_region(self.simmap.get_noise_value(int(new_x), int(new_y))) != "ocean":
+                self.location = [new_x, new_y]
+                break
 
     def find_nearby_agents(self, distance):
         nearby_agents = []
