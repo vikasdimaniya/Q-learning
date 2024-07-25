@@ -2,6 +2,7 @@ import pygame
 import random
 import noise
 import math
+import numpy as np
 
 # Initialize pygame
 pygame.init()
@@ -30,28 +31,28 @@ species_counts = {
 # Define regions
 regions = {
     "ocean": {
-        "altitude_range": [-1.0, 0.2],
-        "color": (59, 179, 200)
+        "altitude_range": [-1.0, -0.3],
+        "color": (0, 105, 148)
     },
-    "shallows": {
-        "altitude_range": [0.2, 0.3],
-        "color": (194, 178, 128)
+    "beach": {
+        "altitude_range": [-0.3, -0.2],
+        "color": (237, 201, 175)
     },
-    "grassland": {
-        "altitude_range": [0.3, 0.5],
-        "color": (100, 120, 60)
+    "plains": {
+        "altitude_range": [-0.2, 0.0],
+        "color": (34, 139, 34)
     },
     "forest": {
-        "altitude_range": [0.5, 0.7],
-        "color": (90, 90, 60)
+        "altitude_range": [0.0, 0.2],
+        "color": (34, 89, 34)
     },
     "mountain": {
-        "altitude_range": [0.7, 0.85],
-        "color": (90, 70, 60)
+        "altitude_range": [0.2, 0.4],
+        "color": (139, 137, 137)
     },
     "snow": {
-        "altitude_range": [0.85, 1.0],
-        "color": (255, 255, 255)
+        "altitude_range": [0.4, 1.0],
+        "color": (255, 250, 250)
     }
 }
 
@@ -60,7 +61,10 @@ class Map:
         self.size = 200
         self.pixels = 400
         self.scale = self.pixels / self.size
-        self.noise_scale = 0.1  # Adjust noise scale for detailed island
+        self.noise_scale = 3.0
+        self.octaves = 6
+        self.persistence = 0.5
+        self.lacunarity = 2.0
         self.regen_multiplier = 1500
         self.agents = []
         self.seed = seed
@@ -69,19 +73,26 @@ class Map:
         self.init_agents()
 
     def draw(self):
-        for x in range(self.pixels):
-            for y in range(self.pixels):
-                value = noise.pnoise2(x * self.noise_scale, y * self.noise_scale, octaves=6, persistence=0.5, lacunarity=2.0, repeatx=1024, repeaty=1024, base=self.seed)
-                falloff = self.radial_falloff(x, y)
-                value = (value - falloff) * 2.5  # Adjust to ensure more land
+        world = np.zeros((self.pixels, self.pixels))
+
+        for i in range(self.pixels):
+            for j in range(self.pixels):
+                nx, ny = i / self.pixels - 0.5, j / self.pixels - 0.5
+                world[i][j] = noise.pnoise2(nx * self.noise_scale,
+                                            ny * self.noise_scale,
+                                            octaves=self.octaves,
+                                            persistence=self.persistence,
+                                            lacunarity=self.lacunarity,
+                                            repeatx=self.pixels,
+                                            repeaty=self.pixels,
+                                            base=self.seed)
+
+        for i in range(self.pixels):
+            for j in range(self.pixels):
+                value = world[i][j]
                 region = self.get_region(value)
                 color = regions[region]["color"]
-                pygame.draw.rect(screen, color, (x, y, 1, 1))
-
-    def radial_falloff(self, x, y):
-        nx = x / self.pixels * 2 - 1
-        ny = y / self.pixels * 2 - 1
-        return max(0, (math.sqrt(nx * nx + ny * ny) - 0.3))  # Adjusted falloff to reduce ocean
+                screen.set_at((i, j), color)
 
     def get_region(self, value):
         for region, properties in regions.items():
@@ -120,9 +131,16 @@ class Map:
                 return [x, y]
 
     def get_noise_value(self, x, y):
-        value = noise.pnoise2(x * self.noise_scale, y * self.noise_scale, octaves=6, persistence=0.5, lacunarity=2.0, repeatx=1024, repeaty=1024, base=self.seed)
-        falloff = self.radial_falloff(x, y)
-        return (value - falloff) * 2.5
+        nx, ny = x / self.pixels - 0.5, y / self.pixels - 0.5
+        value = noise.pnoise2(nx * self.noise_scale,
+                              ny * self.noise_scale,
+                              octaves=self.octaves,
+                              persistence=self.persistence,
+                              lacunarity=self.lacunarity,
+                              repeatx=self.pixels,
+                              repeaty=self.pixels,
+                              base=self.seed)
+        return value
 
     def draw_agents(self):
         for agent in self.agents:
