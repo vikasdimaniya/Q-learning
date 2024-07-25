@@ -1,3 +1,4 @@
+# custom_env.py
 import pygame
 import random
 import noise
@@ -295,7 +296,7 @@ class CustomEnv(gym.Env):
         pygame.display.flip()
 
         if mode == 'rgb_array':
-            return pygame.surfarray.array3d(self.screen)
+            return pygame.surfarray.array3d(self.screen).swapaxes(0, 1)
         elif mode == 'human':
             return None
 
@@ -306,9 +307,16 @@ if __name__ == "__main__":
     env = CustomEnv()
     obs = env.reset()
     done = False
-    while not done:
-        action = env.action_space.sample()
-        obs, reward, done, info = env.step(action)
-        env.render()
 
-    env.close()
+    try:
+        while not done:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+
+            action = env.action_space.sample()  # Sample random action
+            obs, reward, done, info = env.step(action)
+            env.render()
+            time.sleep(0.1)  # Add a small delay to slow down the rendering
+    finally:
+        env.close()
