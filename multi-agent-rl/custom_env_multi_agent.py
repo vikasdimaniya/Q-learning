@@ -147,7 +147,6 @@ class Map:
         for agent in self.agents:
             agent.update()
         self.agents = [agent for agent in self.agents if agent.alive or agent.meat_calories > 0]
-        print("simulated agents completed")
 
 class ResourceBlock:
     def __init__(self, x, y, regen_rate):
@@ -305,12 +304,13 @@ class Agent:
     def reproduce(self):
         pass
 
-class MultiAgentEnv(gym.Env):
+class CarnivoreEnv(gym.Env):
     def __init__(self):
-        super(MultiAgentEnv, self).__init__()
+        super(CarnivoreEnv, self).__init__()
         self.seed = random.randint(0, 1000000)
         self.simmap = Map(self.seed)
-        self.action_space = spaces.Discrete(8 * len(self.simmap.agents))  # 8 possible movement directions for each agent
+        self.carnivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'carnivore']
+        self.action_space = spaces.Discrete(8 * len(self.carnivores))  # 8 possible movement directions for each carnivore agent
         self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.max_steps = 1000
@@ -318,6 +318,7 @@ class MultiAgentEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         self.simmap = Map(self.seed)
+        self.carnivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'carnivore']
         self.current_step = 0
         obs = self.render(mode='rgb_array')
         return obs, {}
@@ -325,7 +326,8 @@ class MultiAgentEnv(gym.Env):
     def step(self, action):
         self.current_step += 1
         actions = self.decode_action(action)
-        for i, agent in enumerate(self.simmap.agents):
+        
+        for i, agent in enumerate(self.carnivores):
             self.perform_action(agent, actions[i])
 
         self.simmap.simulate_agents()
@@ -345,15 +347,15 @@ class MultiAgentEnv(gym.Env):
         # Reward logic:
         reward = 0
         for agent in self.simmap.agents:
-            if agent.species['diet'] == 'herbivore' and agent.alive:
-                reward += 1  # Herbivores staying alive
-            elif agent.species['diet'] == 'carnivore' and not agent.alive:
+            if agent.species['diet'] == 'carnivore' and not agent.alive:
                 reward += 1  # Carnivores killing herbivores
         return reward
 
     def decode_action(self, action):
         actions = []
-        for i in range(len(self.simmap.agents)):
+        num_agents = len(self.carnivores)
+        
+        for _ in range(num_agents):
             actions.append(action % 8)
             action //= 8
         return actions
@@ -389,23 +391,89 @@ class MultiAgentEnv(gym.Env):
     def close(self):
         pygame.quit()
 
-if __name__ == "__main__":
-    env = MultiAgentEnv()
-    obs, _ = env.reset()
-    done = False
+class HerbivoreEnv(gym.Env):
+    def __init__(self):
+        super(HerbivoreEnv, self).__init__()
+        self.seed = random.randint(0, 1000000)
+        self.simmap = Map(self.seed)
+        self.herbivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'herbivore']
+        self.action_space = spaces.Discrete(8 * len(self.herbivores))  # 8 possible movement directions for each herbivore agent
+        self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        self.max_steps = 1000
+        self.current_step = 0
 
-    try:
-        while not done:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    done = True
+    def reset(self, seed=None, options=None):
+        self.simmap = Map(self.seed)
+        self.herbivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'herbivore']
+        self.current_step = 0
+        obs = self.render(mode='rgb_array')
+        return obs, {}
 
-            actions = [env.action_space.sample() for _ in range(len(env.simmap.agents))]
-            obs, reward, done, truncated, info = env.step(actions)
-            print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
-            env.render()
-            time.sleep(0.1)  # Add a small delay to slow down the rendering
-    finally:
-        env.close()
+    def step(self, action):
+        self.current_step += 1
+        actions = self.decode_action(action)
+        
+        for i, agent in enumerate(self.herbivores):
+            self.perform_action(agent, actions[i])
 
-    print("Done")
+        self.simmap.simulate_agents()
+        obs = self.render(mode='rgb_array')
+        reward = self.calculate_reward()
+        done = self.current_step >= self.max_steps  # Example termination condition
+        truncated = False
+        info = {}
+        
+        # Example done condition based on agents' states
+        if all(not agent.alive for agent in self.herbivores):
+            done = True
+            
+        return obs, reward, done, truncated, info
+
+    def calculate_reward(self):
+        # Reward logic:
+        reward = 0
+        for agent in self.herbivores:
+            if agent.alive:
+                reward += 1  # Herbivores staying alive
+        return reward
+
+    def decode_action(self, action):
+        actions = []
+        num_agents = len(self.herbivores)
+        
+        for _ in range(num_agents):
+            actions.append(action % 8)
+            action //= 8
+        return actions
+
+    def perform_action(self, agent, action):
+        if action == 0:
+            agent.move_up()
+        elif action == 1:
+            agent.move_down()
+        elif action == 2:
+            agent.move_left()
+        elif action == 3:
+            agent.move_right()
+        elif action == 4:
+            agent.move_up_left()
+        elif action == 5:
+            agent.move_up_right()
+        elif action == 6:
+            agent.move_down_left()
+        elif action == 7:
+            agent.move_down_right()
+
+    def render(self, mode='human'):
+        self.simmap.draw(self.screen)
+        self.simmap.draw_agents(self.screen)
+        pygame.display.flip()
+
+        if mode == 'rgb_array':
+            return pygame.surfarray.array3d(self.screen).swapaxes(0, 1)
+        elif mode == 'human':
+            return None
+
+    def close(self):
+        pygame.quit()
