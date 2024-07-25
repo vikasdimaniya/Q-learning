@@ -5,7 +5,6 @@ import math
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from stable_baselines3 import PPO
 
 # Initialize pygame
 pygame.init()
@@ -231,6 +230,46 @@ class Agent:
                 self.location = [new_x, new_y]
                 break
 
+    def move_up(self):
+        self._move_direction(0, -1)
+
+    def move_down(self):
+        self._move_direction(0, 1)
+
+    def move_left(self):
+        self._move_direction(-1, 0)
+
+    def move_right(self):
+        self._move_direction(1, 0)
+
+    def move_up_left(self):
+        self._move_direction(-1, -1)
+
+    def move_up_right(self):
+        self._move_direction(1, -1)
+
+    def move_down_left(self):
+        self._move_direction(-1, 1)
+
+    def move_down_right(self):
+        self._move_direction(1, 1)
+
+    def _move_direction(self, dx, dy):
+        if not self.alive:
+            return
+
+        new_x = self.location[0] + dx * self.move_distance_in_pixels
+        new_y = self.location[1] + dy * self.move_distance_in_pixels
+
+        if new_x < 0 or new_x >= WIDTH or new_y < 0 or new_y >= HEIGHT:
+            return
+
+        new_x = max(0, min(WIDTH-1, new_x))
+        new_y = max(0, min(HEIGHT-1, new_y))
+
+        if self.simmap.get_region(self.simmap.get_noise_value(int(new_x), int(new_y))) != "ocean":
+            self.location = [new_x, new_y]
+
     def find_nearby_agents(self, distance):
         nearby_agents = []
         for agent in self.simmap.agents:
@@ -288,8 +327,9 @@ class MultiAgentEnv(gym.Env):
         obs = self.render(mode='rgb_array')
         reward = 0  # Define your reward logic
         done = False  # Define your termination logic
+        truncated = False  # Define your truncation logic if needed
         info = {}
-        return obs, reward, done, info
+        return obs, reward, done, truncated, info
 
     def perform_action(self, agent, action):
         if action == 0:
@@ -334,7 +374,7 @@ if __name__ == "__main__":
                     done = True
 
             actions = [env.action_space.sample() for _ in range(len(env.simmap.agents))]
-            obs, reward, done, info = env.step(actions)
+            obs, reward, done, truncated, info = env.step(actions)
             env.render()
             time.sleep(0.1)  # Add a small delay to slow down the rendering
     finally:
