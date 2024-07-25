@@ -1,2 +1,5 @@
 pygame
 noise
+numpy
+stable_baselines3
+gymnasium

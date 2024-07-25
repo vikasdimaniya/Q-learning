@@ -17,6 +17,6 @@ if __name__ == "__main__":
             action = env.action_space.sample()  # Sample random action
             obs, reward, done, info = env.step(action)
             env.render()
-            time.sleep(0.1)  # Add a small delay to slow down the rendering
+            # time.sleep(0.1)  # Add a small delay to slow down the rendering
     finally:
         env.close()
