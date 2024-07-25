@@ -65,7 +65,7 @@ class Map:
 
     def spawn_agents(self, species, number):
         for _ in range(number):
-            agent = Agent(species_ref[species])
+            agent = Agent(species_ref[species], self)
             location = self.spawn_location()
             agent.location = location
             self.agents.append(agent)
@@ -83,6 +83,8 @@ class Map:
     def simulate_agents(self):
         for agent in self.agents:
             agent.update()
+        # Remove dead agents from the list (if you want to clean up dead agents later)
+        # self.agents = [agent for agent in self.agents if agent.alive]
 
 class ResourceBlock:
     def __init__(self, x, y, regen_rate):
@@ -93,17 +95,18 @@ class ResourceBlock:
         self.regen_rate = regen_rate
 
 class Agent:
-    def __init__(self, species_ref):
+    def __init__(self, species_ref, simmap):
         self.alive = True
         self.safe_to_delete = False
         self.species = species_ref
-        self.age = random.random() * self.species['max_longevity'] * 30
-        self.max_age = self.species['max_longevity'] * 30 * random.random()
+        self.simmap = simmap
+        self.age = random.uniform(0, self.species['max_longevity'] * 30)  # Ensure age is within lifespan
+        self.max_age = self.species['max_longevity'] * 30 * random.uniform(0.5, 1)  # Ensure max_age is a reasonable fraction of the max longevity
         self.starvation_days = 0
         self.location = [0, 0]
         self.sex = "male" if random.random() > 0.5 else "female"
-        self.move_distance = math.sqrt(self.species['home_range']) * 7
-        self.move_distance_in_pixels = self.move_distance * 4
+        self.move_distance = math.sqrt(self.species['home_range']) * 0.5  # Reduced speed further
+        self.move_distance_in_pixels = self.move_distance * 0.5  # Further reduce speed
         self.last_reproduce = 100000
         self.meat_calories = self.species['adult_body_mass'] * 1500
 
@@ -114,7 +117,7 @@ class Agent:
             color = GREEN
         else:
             color = RED
-        pygame.draw.circle(screen, color, (self.location[0], self.location[1]), 2)
+        pygame.draw.circle(screen, color, (int(self.location[0]), int(self.location[1])), 2)
 
     def update(self):
         self.age += 1
@@ -129,19 +132,49 @@ class Agent:
         self.move()
 
     def move(self):
-        angle = random.random() * 360
-        new_x = int(self.location[0] + math.cos(angle) * self.move_distance_in_pixels)
-        new_y = int(self.location[1] + math.sin(angle) * self.move_distance_in_pixels)
-        if 0 <= new_x < 400 and 0 <= new_y < 400:
-            self.location = [new_x, new_y]
+        if not self.alive:
+            return  # Dead agents don't move
+
+        angle = random.uniform(0, 2 * math.pi)
+        new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
+        new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
+        
+        # Reflect direction if out of bounds
+        if new_x < 0 or new_x >= WIDTH:
+            angle = math.pi - angle
+            new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
+        if new_y < 0 or new_y >= HEIGHT:
+            angle = -angle
+            new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
+        
+        # Ensure the new position is within bounds
+        new_x = max(0, min(WIDTH-1, new_x))
+        new_y = max(0, min(HEIGHT-1, new_y))
+        
+        self.location = [new_x, new_y]
+
+    def find_nearby_agents(self, distance):
+        nearby_agents = []
+        for agent in self.simmap.agents:
+            if agent is not self and agent.alive:
+                dist = math.sqrt((self.location[0] - agent.location[0])**2 + (self.location[1] - agent.location[1])**2)
+                if dist <= distance:
+                    nearby_agents.append(agent)
+        return nearby_agents
 
     def feed_plant(self):
         # Implement plant feeding logic
         pass
 
     def feed_meat(self):
-        # Implement meat feeding logic
-        pass
+        nearby_agents = self.find_nearby_agents(10)  # Define a suitable distance for hunting
+        for agent in nearby_agents:
+            if agent.species['diet'] == "herbivore":
+                agent.alive = False
+                self.starvation_days = 0
+                break
+        else:
+            self.starvation_days += 1
 
     def reproduce(self):
         # Implement reproduction logic
