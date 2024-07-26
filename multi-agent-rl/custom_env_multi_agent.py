@@ -17,7 +17,7 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 DECAY_RATE = 0.01  # Rate at which dead bodies decay
-
+MIN_AGENTS = 1  # Minimum number of agents to spawn
 # Define regions
 regions = {
     "ocean": {
@@ -106,11 +106,10 @@ class Map:
                 self.resource_blocks[x].append(ResourceBlock(x, y, regen_rate))
 
     def init_agents(self):
-        min_agents = 30
         for species in species_ref:
-            number = random.randint(min_agents, min_agents * 2)
+            number = MIN_AGENTS
             if species_ref[species]["diet"] == "herbivore":
-                number *= 30
+                number = MIN_AGENTS*10
             self.spawn_agents(species, number)
 
     def spawn_agents(self, species, number):
@@ -313,7 +312,7 @@ class CarnivoreEnv(gym.Env):
         self.action_space = spaces.Discrete(8 * len(self.carnivores))  # 8 possible movement directions for each carnivore agent
         self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        self.max_steps = 1000
+        self.max_steps = 10
         self.current_step = 0
 
     def reset(self, seed=None, options=None):
@@ -344,11 +343,13 @@ class CarnivoreEnv(gym.Env):
         return obs, reward, done, truncated, info
 
     def calculate_reward(self):
-        # Reward logic:
+        # Reward logic for carnivores:
         reward = 0
-        for agent in self.simmap.agents:
-            if agent.species['diet'] == 'carnivore' and not agent.alive:
-                reward += 1  # Carnivores killing herbivores
+        for carnivore in self.carnivores:
+            nearby_agents = carnivore.find_nearby_agents(10)
+            for nearby_agent in nearby_agents:
+                if nearby_agent.species['diet'] == 'herbivore' and not nearby_agent.alive:
+                    reward += 1  # Reward for each herbivore hunted by carnivores
         return reward
 
     def decode_action(self, action):

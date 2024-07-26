@@ -10,8 +10,8 @@ if __name__ == "__main__":
         model_herbivore = DQN("MlpPolicy", env_herbivore, verbose=1)
 
         # Training models separately
-        model_carnivore.learn(total_timesteps=10000)
-        model_herbivore.learn(total_timesteps=10000)
+        model_carnivore.learn(total_timesteps=1000)
+        model_herbivore.learn(total_timesteps=1000)
         print("Training finished")
 
         obs_carnivore, _ = env_carnivore.reset()
