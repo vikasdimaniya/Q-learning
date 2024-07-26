@@ -124,6 +124,7 @@ class Map:
             x = random.randint(0, self.pixels - 1)
             y = random.randint(0, self.pixels - 1)
             if self.get_region(self.get_noise_value(x, y)) != "ocean":
+                print (x, y)
                 return [x, y]
 
     def get_noise_value(self, x, y):
@@ -304,15 +305,16 @@ class Agent:
         pass
 
 class CarnivoreEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, max_steps=1000):  # Allow max_steps to be adjustable
         super(CarnivoreEnv, self).__init__()
         self.seed = random.randint(0, 1000000)
         self.simmap = Map(self.seed)
         self.carnivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'carnivore']
-        self.action_space = spaces.Discrete(8 * len(self.carnivores))  # 8 possible movement directions for each carnivore agent
+        assert len(self.carnivores) == 1, "There should be exactly one carnivore"
+        self.action_space = spaces.Discrete(8)  # 8 possible movement directions for the single carnivore
         self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        self.max_steps = 10
+        self.max_steps = max_steps
         self.current_step = 0
 
     def reset(self, seed=None, options=None):
@@ -324,22 +326,25 @@ class CarnivoreEnv(gym.Env):
 
     def step(self, action):
         self.current_step += 1
-        actions = self.decode_action(action)
-        
-        for i, agent in enumerate(self.carnivores):
-            self.perform_action(agent, actions[i])
+        self.perform_action(self.carnivores[0], action)
 
         self.simmap.simulate_agents()
         obs = self.render(mode='rgb_array')
         reward = self.calculate_reward()
-        done = self.current_step >= self.max_steps  # Example termination condition
+        done = self.current_step >= self.max_steps  # Termination condition based on max steps
         truncated = False
         info = {}
-        
-        # Example done condition based on agents' states
+
+        # Check if all herbivores are dead
         if all(not agent.alive for agent in self.simmap.agents if agent.species['diet'] == 'herbivore'):
             done = True
-            
+            reward += 100  # Large reward for carnivores if they win
+
+        # Check if the carnivore is dead
+        if all(not agent.alive for agent in self.simmap.agents if agent.species['diet'] == 'carnivore'):
+            done = True
+            reward -= 100  # Large penalty for carnivores if they lose
+
         return obs, reward, done, truncated, info
 
     def calculate_reward(self):
@@ -349,17 +354,8 @@ class CarnivoreEnv(gym.Env):
             nearby_agents = carnivore.find_nearby_agents(10)
             for nearby_agent in nearby_agents:
                 if nearby_agent.species['diet'] == 'herbivore' and not nearby_agent.alive:
-                    reward += 1  # Reward for each herbivore hunted by carnivores
+                    reward += 10  # Positive reward for each herbivore hunted by carnivores
         return reward
-
-    def decode_action(self, action):
-        actions = []
-        num_agents = len(self.carnivores)
-        
-        for _ in range(num_agents):
-            actions.append(action % 8)
-            action //= 8
-        return actions
 
     def perform_action(self, agent, action):
         if action == 0:
@@ -393,7 +389,7 @@ class CarnivoreEnv(gym.Env):
         pygame.quit()
 
 class HerbivoreEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, max_steps=1000):  # Allow max_steps to be adjustable
         super(HerbivoreEnv, self).__init__()
         self.seed = random.randint(0, 1000000)
         self.simmap = Map(self.seed)
@@ -401,7 +397,7 @@ class HerbivoreEnv(gym.Env):
         self.action_space = spaces.Discrete(8 * len(self.herbivores))  # 8 possible movement directions for each herbivore agent
         self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        self.max_steps = 1000
+        self.max_steps = max_steps
         self.current_step = 0
 
     def reset(self, seed=None, options=None):
@@ -421,22 +417,28 @@ class HerbivoreEnv(gym.Env):
         self.simmap.simulate_agents()
         obs = self.render(mode='rgb_array')
         reward = self.calculate_reward()
-        done = self.current_step >= self.max_steps  # Example termination condition
+        done = self.current_step >= self.max_steps  # Termination condition based on max steps
         truncated = False
         info = {}
-        
-        # Example done condition based on agents' states
+
+        # Check if all herbivores are dead
         if all(not agent.alive for agent in self.herbivores):
             done = True
+            reward -= 100  # Large penalty for herbivores if they lose
+        
+        # Check if all carnivores are dead
+        if all(not agent.alive for agent in self.simmap.agents if agent.species['diet'] == 'carnivore'):
+            done = True
+            reward += 100  # Large reward for herbivores if they win
             
         return obs, reward, done, truncated, info
 
     def calculate_reward(self):
-        # Reward logic:
+        # Reward logic for herbivores:
         reward = 0
         for agent in self.herbivores:
             if agent.alive:
-                reward += 1  # Herbivores staying alive
+                reward += 1  # Reward for each herbivore that stays alive
         return reward
 
     def decode_action(self, action):
@@ -478,3 +480,4 @@ class HerbivoreEnv(gym.Env):
 
     def close(self):
         pygame.quit()
+
