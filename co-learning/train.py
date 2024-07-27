@@ -19,13 +19,16 @@ def train_agent(training_agent, assisting_agent, env, timesteps, is_carnivore):
     for _ in range(timesteps):
         action_assisting, _ = assisting_agent.predict(obs)
         action_training, _ = training_agent.predict(obs)
+        
         if is_carnivore:
-            actions = action_training
+            actions = (action_training, action_assisting)
         else:
-            actions = action_training
+            actions = (action_assisting, action_training)
+            
         obs, reward, terminated, truncated = env.step(actions)
         training_agent.learn(total_timesteps=1, reset_num_timesteps=False)
-        if terminated or truncated:  # Add check for terminated and truncated
+        
+        if terminated or truncated:
             obs = env.reset()
 
 if __name__ == "__main__":
