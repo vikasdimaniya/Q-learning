@@ -15,7 +15,7 @@ def create_herbivore_env():
 
 # Unified training function
 def train_agent(training_agent, assisting_agent, env, timesteps, is_carnivore):
-    obs, _ = env.reset()
+    obs = env.reset()
     for _ in range(timesteps):
         action_assisting, _ = assisting_agent.predict(obs)
         action_training, _ = training_agent.predict(obs)
@@ -23,10 +23,10 @@ def train_agent(training_agent, assisting_agent, env, timesteps, is_carnivore):
             actions = action_training
         else:
             actions = action_training
-        obs, reward, terminated, truncated, info = env.step(actions)
+        obs, reward, terminated, truncated = env.step(actions)
         training_agent.learn(total_timesteps=1, reset_num_timesteps=False)
         if terminated or truncated:  # Add check for terminated and truncated
-            obs, _ = env.reset()
+            obs = env.reset()
 
 if __name__ == "__main__":
     carnivore_env = create_carnivore_env()
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     try:
         iterations = 10  # Number of iterations to alternate training
-        timesteps_per_iteration = 1000  # Timesteps for each training phase
+        timesteps_per_iteration = 10  # Timesteps for each training phase
 
         for i in range(iterations):
             print(f"Iteration {i+1}/{iterations} - Training carnivore agent")
