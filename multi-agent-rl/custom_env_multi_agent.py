@@ -109,7 +109,7 @@ class Map:
         for species in species_ref:
             number = MIN_AGENTS
             if species_ref[species]["diet"] == "herbivore":
-                number = MIN_AGENTS*10
+                number = MIN_AGENTS*100
             self.spawn_agents(species, number)
 
     def spawn_agents(self, species, number):
@@ -124,7 +124,7 @@ class Map:
             x = random.randint(0, self.pixels - 1)
             y = random.randint(0, self.pixels - 1)
             if self.get_region(self.get_noise_value(x, y)) != "ocean":
-                print (x, y)
+                # print (x, y)
                 return [x, y]
 
     def get_noise_value(self, x, y):
@@ -345,6 +345,7 @@ class CarnivoreEnv(gym.Env):
             done = True
             reward -= 100  # Large penalty for carnivores if they lose
 
+        print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
         return obs, reward, done, truncated, info
 
     def calculate_reward(self):
@@ -355,6 +356,7 @@ class CarnivoreEnv(gym.Env):
             for nearby_agent in nearby_agents:
                 if nearby_agent.species['diet'] == 'herbivore' and not nearby_agent.alive:
                     reward += 10  # Positive reward for each herbivore hunted by carnivores
+                    nearby_agent.alive = False # Remove the dead herbivore
         return reward
 
     def perform_action(self, agent, action):
@@ -430,7 +432,8 @@ class HerbivoreEnv(gym.Env):
         if all(not agent.alive for agent in self.simmap.agents if agent.species['diet'] == 'carnivore'):
             done = True
             reward += 100  # Large reward for herbivores if they win
-            
+        
+        print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
         return obs, reward, done, truncated, info
 
     def calculate_reward(self):

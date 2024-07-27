@@ -46,6 +46,14 @@
             "request": "launch",
             "program": "multi-agent-rl/env_test.py",
             "console": "integratedTerminal"
+        },
+        {
+            
+            "name": "multi-agent-rl/load_model.py",
+            "type": "python",
+            "request": "launch",
+            "program": "multi-agent-rl/load_model.py",
+            "console": "integratedTerminal"
         }
     ]
 }
