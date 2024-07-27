@@ -54,6 +54,23 @@
             "request": "launch",
             "program": "multi-agent-rl/load_model.py",
             "console": "integratedTerminal"
+        },
+        {
+            
+            "name": "multi-agent-single-env/train_agents.py",
+            "type": "python",
+            "request": "launch",
+            "program": "multi-agent-single-env/train_agents.py",
+            "console": "integratedTerminal"
+        },
+        {
+            
+            "name": "co-learning/train.py",
+            "type": "python",
+            "request": "launch",
+            "program": "co-learning/train.py",
+            "console": "integratedTerminal"
         }
+
     ]
 }

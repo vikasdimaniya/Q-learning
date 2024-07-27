@@ -8,8 +8,8 @@ if __name__ == "__main__":
 
     try:
         # Load the models
-        loaded_model_carnivore = DQN.load("dqn_carnivore_model", env=env_carnivore)
-        loaded_model_herbivore = DQN.load("dqn_herbivore_model", env=env_herbivore)
+        loaded_model_carnivore = DQN.load("1_dqn_carnivore_model_10000", env=env_carnivore)
+        loaded_model_herbivore = DQN.load("1_dqn_herbivore_model_10000", env=env_herbivore)
         print("Models loaded")
 
         # Reset the environments

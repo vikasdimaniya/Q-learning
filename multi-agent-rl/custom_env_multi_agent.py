@@ -8,9 +8,9 @@ from gymnasium import spaces
 
 # Initialize pygame
 pygame.init()
-
+SIZE = 400
 # Define constants
-WIDTH, HEIGHT = 400, 400
+WIDTH, HEIGHT = SIZE, SIZE
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 RED = (255, 0, 0)
@@ -56,7 +56,7 @@ species_ref = {
 class Map:
     def __init__(self, seed):
         self.size = 200
-        self.pixels = 400
+        self.pixels = SIZE
         self.scale = self.pixels / self.size
         self.noise_scale = 3.0
         self.octaves = 6
@@ -345,7 +345,7 @@ class CarnivoreEnv(gym.Env):
             done = True
             reward -= 100  # Large penalty for carnivores if they lose
 
-        print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
+        # print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
         return obs, reward, done, truncated, info
 
     def calculate_reward(self):
@@ -433,7 +433,7 @@ class HerbivoreEnv(gym.Env):
             done = True
             reward += 100  # Large reward for herbivores if they win
         
-        print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
+        # print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
         return obs, reward, done, truncated, info
 
     def calculate_reward(self):
