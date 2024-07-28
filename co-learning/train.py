@@ -16,15 +16,14 @@ def create_herbivore_env():
 # Unified training function
 def train_agent(training_agent, env, timesteps, is_carnivore):
     obs = env.reset()
-    for _ in range(timesteps):
-        action_training, _ = training_agent.predict(obs)
-        action = action_training
-            
-        obs, reward, terminated, truncated = env.step(action)
-        training_agent.learn(total_timesteps=1, reset_num_timesteps=False)
+    action_training, _ = training_agent.predict(obs)
+    action = action_training
         
-        if terminated or truncated:
-            obs = env.reset()
+    obs, reward, terminated, truncated = env.step(action)
+    training_agent.learn(total_timesteps=timesteps, reset_num_timesteps=False)
+    
+    if terminated or truncated:
+        obs = env.reset()
 
 if __name__ == "__main__":
     carnivore_env = create_carnivore_env()

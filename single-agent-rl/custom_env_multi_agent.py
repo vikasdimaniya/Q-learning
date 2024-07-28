@@ -124,7 +124,6 @@ class Map:
             x = random.randint(0, self.pixels - 1)
             y = random.randint(0, self.pixels - 1)
             if self.get_region(self.get_noise_value(x, y)) != "ocean":
-                # print (x, y)
                 return [x, y]
 
     def get_noise_value(self, x, y):
@@ -209,7 +208,6 @@ class Agent:
                 self.reproduce()
             if(self.species['diet'] == "herbivore"):
                 self.move()
-            # else: # Carnivores are controlled by the environment
 
     def move(self):
         if not self.alive:

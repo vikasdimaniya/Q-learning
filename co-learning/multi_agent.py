@@ -38,8 +38,8 @@ class MultiAgentEnv(gym.Env):
         
         assert len(self.carnivores) >= 1, "There should be at least one carnivore"
         self.current_step = 0
-        agentIndex = 
-        obs = self.get_observation()
+        
+        obs = self.get_observation(self.carnivores[0])
         return obs, {}
 
     def step(self, action):
