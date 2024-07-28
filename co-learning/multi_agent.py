@@ -1,10 +1,15 @@
 import gymnasium as gym
 from gymnasium import spaces
+from stable_baselines3 import DQN
 import pygame
 import random
 import numpy as np
+import os
+from stable_baselines3.common.vec_env import DummyVecEnv
 from map import Map  # Ensure correct import of the Map class
-
+def create_herbivore_env():
+    env = MultiAgentEnv(agent_type='herbivore')
+    return DummyVecEnv([lambda: env])
 WIDTH, HEIGHT = 400, 400
 
 class MultiAgentEnv(gym.Env):
@@ -33,20 +38,30 @@ class MultiAgentEnv(gym.Env):
         
         assert len(self.carnivores) >= 1, "There should be at least one carnivore"
         self.current_step = 0
+        agentIndex = 
         obs = self.get_observation()
         return obs, {}
 
     def step(self, action):
         if self.agent_type == 'carnivore':
             action_carnivore = action
-            action_herbivore = 0  # Default action for herbivores
+            # loop over all herbivores and predict their actions
+            self.herbivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'herbivore']
+            herbivore_model_path = "dqn_herbivore_agent_co_learning"
+            if os.path.exists(herbivore_model_path + ".zip"):
+                herbivore_env = create_herbivore_env()
+                herbivore_agent = DQN.load(herbivore_model_path, env=herbivore_env)
+                print("Loaded herbivore model")
+                actions_herbivore = [herbivore_agent.predict(_.get_observation()) for _ in self.herbivores]
+            else:
+                actions_herbivore = [random.randint(0, 7) for _ in self.herbivores]
         else:
-            action_herbivore = action
+            actions_herbivore = action
             action_carnivore = 0  # Default action for carnivores
 
         self.current_step += 1
         self.perform_action(self.carnivores[0], action_carnivore)
-        for herbivore in self.herbivores:
+        for herbivore, action_herbivore in self.herbivores, actions_herbivore:
             self.perform_action(herbivore, action_herbivore)
 
         self.simmap.simulate_agents()
@@ -72,8 +87,8 @@ class MultiAgentEnv(gym.Env):
         else:
             return obs, reward_herbivore, terminated, truncated, info
 
-    def get_observation(self):
-        agent = self.carnivores[0] if self.agent_type == 'carnivore' else self.herbivores[0]
+    def get_observation(self, agentIndex):
+        agent = self.carnivores[0] if self.agent_type == 'carnivore' else self.herbivores[agentIndex]
         tiles = agent.get_surrounding_tiles()
         # Apply convolution if required
         # processed_tiles = apply_convolution(tiles, self.kernel)

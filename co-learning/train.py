@@ -14,18 +14,13 @@ def create_herbivore_env():
     return DummyVecEnv([lambda: env])
 
 # Unified training function
-def train_agent(training_agent, assisting_agent, env, timesteps, is_carnivore):
+def train_agent(training_agent, env, timesteps, is_carnivore):
     obs = env.reset()
     for _ in range(timesteps):
-        action_assisting, _ = assisting_agent.predict(obs)
         action_training, _ = training_agent.predict(obs)
-        
-        if is_carnivore:
-            actions = (action_training, action_assisting)
-        else:
-            actions = (action_assisting, action_training)
+        action = action_training
             
-        obs, reward, terminated, truncated = env.step(actions)
+        obs, reward, terminated, truncated = env.step(action)
         training_agent.learn(total_timesteps=1, reset_num_timesteps=False)
         
         if terminated or truncated:
@@ -60,11 +55,11 @@ if __name__ == "__main__":
 
         for i in range(iterations):
             print(f"Iteration {i+1}/{iterations} - Training carnivore agent")
-            train_agent(carnivore_agent, herbivore_agent, carnivore_env, timesteps_per_iteration, is_carnivore=True)
+            train_agent(carnivore_agent, carnivore_env, timesteps_per_iteration, is_carnivore=True)
             carnivore_agent.save(carnivore_model_path)
 
             print(f"Iteration {i+1}/{iterations} - Training herbivore agent")
-            train_agent(herbivore_agent, carnivore_agent, herbivore_env, timesteps_per_iteration, is_carnivore=False)
+            train_agent(herbivore_agent, herbivore_env, timesteps_per_iteration, is_carnivore=False)
             herbivore_agent.save(herbivore_model_path)
 
         print("Training finished")
