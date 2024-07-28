@@ -38,6 +38,14 @@
         },
         {
             
+            "name": "multi-agent-rl/train_carnivore.py",
+            "type": "python",
+            "request": "launch",
+            "program": "multi-agent-rl/train_carnivore.py",
+            "console": "integratedTerminal"
+        },
+        {
+            
             "name": "multi-agent-rl/env_test.py",
             "type": "python",
             "request": "launch",

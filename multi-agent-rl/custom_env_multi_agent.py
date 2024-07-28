@@ -207,7 +207,9 @@ class Agent:
                 self.feed_meat()
             if self.age > self.species['age_at_first_birth'] and self.starvation_days < 10 and random.random() < 0.01:
                 self.reproduce()
-            self.move()
+            if(self.species['diet'] == "herbivore"):
+                self.move()
+            # else: # Carnivores are controlled by the environment
 
     def move(self):
         if not self.alive:
@@ -343,7 +345,7 @@ class CarnivoreEnv(gym.Env):
         # Check if the carnivore is dead
         if all(not agent.alive for agent in self.simmap.agents if agent.species['diet'] == 'carnivore'):
             done = True
-            reward -= 100  # Large penalty for carnivores if they lose
+            reward -= 10  # Large penalty for carnivores if they lose
 
         # print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
         return obs, reward, done, truncated, info
@@ -389,98 +391,3 @@ class CarnivoreEnv(gym.Env):
 
     def close(self):
         pygame.quit()
-
-class HerbivoreEnv(gym.Env):
-    def __init__(self, max_steps=1000):  # Allow max_steps to be adjustable
-        super(HerbivoreEnv, self).__init__()
-        self.seed = random.randint(0, 1000000)
-        self.simmap = Map(self.seed)
-        self.herbivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'herbivore']
-        self.action_space = spaces.Discrete(8 * len(self.herbivores))  # 8 possible movement directions for each herbivore agent
-        self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        self.max_steps = max_steps
-        self.current_step = 0
-
-    def reset(self, seed=None, options=None):
-        self.simmap = Map(self.seed)
-        self.herbivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'herbivore']
-        self.current_step = 0
-        obs = self.render(mode='rgb_array')
-        return obs, {}
-
-    def step(self, action):
-        self.current_step += 1
-        actions = self.decode_action(action)
-        
-        for i, agent in enumerate(self.herbivores):
-            self.perform_action(agent, actions[i])
-
-        self.simmap.simulate_agents()
-        obs = self.render(mode='rgb_array')
-        reward = self.calculate_reward()
-        done = self.current_step >= self.max_steps  # Termination condition based on max steps
-        truncated = False
-        info = {}
-
-        # Check if all herbivores are dead
-        if all(not agent.alive for agent in self.herbivores):
-            done = True
-            reward -= 100  # Large penalty for herbivores if they lose
-        
-        # Check if all carnivores are dead
-        if all(not agent.alive for agent in self.simmap.agents if agent.species['diet'] == 'carnivore'):
-            done = True
-            reward += 100  # Large reward for herbivores if they win
-        
-        # print(f"Reward: {reward}, Done: {done}, Truncated: {truncated}, Info: {info}")
-        return obs, reward, done, truncated, info
-
-    def calculate_reward(self):
-        # Reward logic for herbivores:
-        reward = 0
-        for agent in self.herbivores:
-            if agent.alive:
-                reward += 1  # Reward for each herbivore that stays alive
-        return reward
-
-    def decode_action(self, action):
-        actions = []
-        num_agents = len(self.herbivores)
-        
-        for _ in range(num_agents):
-            actions.append(action % 8)
-            action //= 8
-        return actions
-
-    def perform_action(self, agent, action):
-        if action == 0:
-            agent.move_up()
-        elif action == 1:
-            agent.move_down()
-        elif action == 2:
-            agent.move_left()
-        elif action == 3:
-            agent.move_right()
-        elif action == 4:
-            agent.move_up_left()
-        elif action == 5:
-            agent.move_up_right()
-        elif action == 6:
-            agent.move_down_left()
-        elif action == 7:
-            agent.move_down_right()
-
-    def render(self, mode='human'):
-        self.simmap.draw(self.screen)
-        self.simmap.draw_agents(self.screen)
-        pygame.display.flip()
-
-        if mode == 'rgb_array':
-            return pygame.surfarray.array3d(self.screen).swapaxes(0, 1)
-        elif mode == 'human':
-            return None
-
-    def close(self):
-        pygame.quit()
-
