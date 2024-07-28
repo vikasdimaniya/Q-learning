@@ -30,34 +30,34 @@
         },
         {
             
-            "name": "multi-agent-rl/train_agents.py",
+            "name": "single-agent-rl/train_agents.py",
             "type": "python",
             "request": "launch",
-            "program": "multi-agent-rl/train_agents.py",
+            "program": "single-agent-rl/train_agents.py",
             "console": "integratedTerminal"
         },
         {
             
-            "name": "multi-agent-rl/train_carnivore.py",
+            "name": "single-agent-rl/train_carnivore.py",
             "type": "python",
             "request": "launch",
-            "program": "multi-agent-rl/train_carnivore.py",
+            "program": "single-agent-rl/train_carnivore.py",
             "console": "integratedTerminal"
         },
         {
             
-            "name": "multi-agent-rl/env_test.py",
+            "name": "single-agent-rl/env_test.py",
             "type": "python",
             "request": "launch",
-            "program": "multi-agent-rl/env_test.py",
+            "program": "single-agent-rl/env_test.py",
             "console": "integratedTerminal"
         },
         {
             
-            "name": "multi-agent-rl/load_model.py",
+            "name": "single-agent-rl/load_model.py",
             "type": "python",
             "request": "launch",
-            "program": "multi-agent-rl/load_model.py",
+            "program": "single-agent-rl/load_model.py",
             "console": "integratedTerminal"
         },
         {

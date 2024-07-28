@@ -5,17 +5,16 @@ from stable_baselines3 import DQN
 # Training the model
 if __name__ == "__main__":
     env_carnivore = custom_env_multi_agent.CarnivoreEnv()
-
     try:
-        model_carnivore = DQN("CnnPolicy", env_carnivore, verbose=1)
-
         carnivore_model_path = "dqn_carnivore_model_10000"
         herbivore_model_path = "dqn_herbivore_agent_co_learning"
-
+        model_carnivore = 0
         # Initialize or load the carnivore agent
         if os.path.exists(carnivore_model_path + ".zip"):
-            carnivore_agent = DQN.load(carnivore_model_path, env=env_carnivore)
+            model_carnivore = DQN.load(carnivore_model_path, env=env_carnivore)
             print("Loaded carnivore model")
+        else:
+            model_carnivore = DQN("CnnPolicy", env_carnivore, verbose=1)
         model_carnivore.learn(total_timesteps=100)
         model_carnivore.save(carnivore_model_path)
         print("Training finished for carnivore")
