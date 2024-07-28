@@ -325,7 +325,7 @@ class CarnivoreEnv(gym.Env):
 
     def step(self, action):
         self.current_step += 1
-        # print(f"Step: {self.current_step}")
+        print(f"Step: {self.current_step}")
 
         actions = self.decode_action(action)
         

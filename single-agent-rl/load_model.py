@@ -1,9 +1,9 @@
-import custom_env_multi_agent
+import single_agent_env
 from stable_baselines3 import DQN
 import pygame
 
 if __name__ == "__main__":
-    env_carnivore = custom_env_multi_agent.CarnivoreEnv()
+    env_carnivore = single_agent_env.CarnivoreEnv()
     
     try:
         # Load the trained model

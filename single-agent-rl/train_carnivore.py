@@ -1,12 +1,12 @@
-import custom_env_multi_agent
+import single_agent_env
 from stable_baselines3 import DQN
 import pygame
 
 if __name__ == "__main__":
-    env_carnivore = custom_env_multi_agent.CarnivoreEnv()
+    env_carnivore = single_agent_env.CarnivoreEnv()
     
     try:
-        model_carnivore = DQN("CnnPolicy", env_carnivore, verbose=1)
+        model_carnivore = DQN("CnnPolicy", env_carnivore, verbose=1, device="cuda")
         
         # Training model for carnivores
         total_timesteps = 10000
