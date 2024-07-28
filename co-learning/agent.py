@@ -2,6 +2,15 @@ import random
 import numpy as np
 import pygame
 WIDTH, HEIGHT = 400, 400
+
+regions = {
+    "ocean": {"altitude_range": [-1.0, -0.3], "color": (0, 105, 148)},
+    "beach": {"altitude_range": [-0.3, -0.2], "color": (237, 201, 175)},
+    "plains": {"altitude_range": [-0.2, 0.0], "color": (34, 139, 34)},
+    "forest": {"altitude_range": [0.0, 0.2], "color": (34, 89, 34)},
+    "mountain": {"altitude_range": [0.2, 0.4], "color": (139, 137, 137)},
+    "snow": {"altitude_range": [0.4, 1.0], "color": (255, 250, 250)},
+}
 class Agent:
     def __init__(self, species_ref, simmap):
         self.alive = True
@@ -149,3 +158,17 @@ class Agent:
 
     def reproduce(self):
         pass
+    def get_surrounding_tiles(self):
+        x, y = int(self.location[0]), int(self.location[1])
+        tiles = np.zeros((84, 84, 3), dtype=np.uint8)
+
+        for i in range(-42, 42):
+            for j in range(-42, 42):
+                nx, ny = x + i, y + j
+                if 0 <= nx < WIDTH and 0 <= ny < HEIGHT:
+                    region = self.simmap.get_region(self.simmap.get_noise_value(nx, ny))
+                    tiles[i + 42, j + 42] = regions[region]["color"]
+                else:
+                    tiles[i + 42, j + 42] = (0, 0, 0)  # Black for out-of-bounds
+        return tiles
+

@@ -19,7 +19,9 @@ class MultiAgentEnv(gym.Env):
         self.agent_type = agent_type
         self.action_space = spaces.Discrete(8)  # Actions for the specified agent type
 
-        self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
+        # Observation space for the surrounding 25 tiles
+        self.observation_space = spaces.Box(low=0, high=255, shape=(84, 84, 3), dtype=np.uint8)
+
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.max_steps = max_steps
         self.current_step = 0
@@ -31,7 +33,7 @@ class MultiAgentEnv(gym.Env):
         
         assert len(self.carnivores) >= 1, "There should be at least one carnivore"
         self.current_step = 0
-        obs = self.render(mode='rgb_array')
+        obs = self.get_observation()
         return obs, {}
 
     def step(self, action):
@@ -48,7 +50,7 @@ class MultiAgentEnv(gym.Env):
             self.perform_action(herbivore, action_herbivore)
 
         self.simmap.simulate_agents()
-        obs = self.render(mode='rgb_array')
+        obs = self.get_observation()
         reward_carnivore = self.calculate_carnivore_reward()
         reward_herbivore = self.calculate_herbivore_reward()
         terminated = self.current_step >= self.max_steps  # Termination condition based on max steps
@@ -69,6 +71,13 @@ class MultiAgentEnv(gym.Env):
             return obs, reward_carnivore, terminated, truncated, info
         else:
             return obs, reward_herbivore, terminated, truncated, info
+
+    def get_observation(self):
+        agent = self.carnivores[0] if self.agent_type == 'carnivore' else self.herbivores[0]
+        tiles = agent.get_surrounding_tiles()
+        # Apply convolution if required
+        # processed_tiles = apply_convolution(tiles, self.kernel)
+        return tiles
 
     def calculate_carnivore_reward(self):
         reward = 0
