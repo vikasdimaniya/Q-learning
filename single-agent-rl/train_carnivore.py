@@ -17,13 +17,13 @@ if __name__ == "__main__":
             print("Initialized new carnivore model")
         
         # Training model for carnivores
-        total_timesteps = 100
+        total_timesteps = 1000
         # save the model after 1000 timesteps
 
-        for i in range(0, total_timesteps, 1000):
-            # Learn without rendering to avoid resetting the environment
-            model_carnivore.learn(total_timesteps=total_timesteps)
-            model_carnivore.save(carnivore_model_path)
+        # for i in range(0, 1000):
+        #     # Learn without rendering to avoid resetting the environment
+        #     model_carnivore.learn(total_timesteps=total_timesteps)
+        #     model_carnivore.save(carnivore_model_path)
         
         print("Training finished")
 

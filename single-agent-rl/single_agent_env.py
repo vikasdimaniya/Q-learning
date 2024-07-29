@@ -197,9 +197,11 @@ class Agent:
 
     def update(self):
         self.age += 1
-        if self.age > self.max_age or self.starvation_days > 30:
+        # if self.age > self.max_age or self.starvation_days > 30:
+        #     self.alive = False
+        if self.starvation_days > 30:
+            print("Agent died due to starvation")
             self.alive = False
-
         if not self.alive:
             self.decay()
 
@@ -218,22 +220,22 @@ class Agent:
         if not self.alive:
             return
 
-        for _ in range(10):  # Try up to 10 times to find a valid move
-            angle = random.uniform(0, 2 * math.pi)
-            new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
-            new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
+        # for _ in range(10):  # Try up to 10 times to find a valid move
+        #     angle = random.uniform(0, 2 * math.pi)
+        #     new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
+        #     new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
 
-            if new_x < 0 or new_x >= WIDTH:
-                continue
-            if new_y < 0 or new_y >= HEIGHT:
-                continue
+        #     if new_x < 0 or new_x >= WIDTH:
+        #         continue
+        #     if new_y < 0 or new_y >= HEIGHT:
+        #         continue
 
-            new_x = max(0, min(WIDTH-1, new_x))
-            new_y = max(0, min(HEIGHT-1, new_y))
+        #     new_x = max(0, min(WIDTH-1, new_x))
+        #     new_y = max(0, min(HEIGHT-1, new_y))
 
-            if self.simmap.get_region(self.simmap.get_noise_value(int(new_x), int(new_y))) != "ocean":
-                self.location = [new_x, new_y]
-                break
+        #     if self.simmap.get_region(self.simmap.get_noise_value(int(new_x), int(new_y))) != "ocean":
+        #         self.location = [new_x, new_y]
+        #         break
 
     def move_up(self):
         self._move_direction(0, -1)
@@ -291,11 +293,13 @@ class Agent:
         nearby_agents = self.find_nearby_agents(10)
         for agent in nearby_agents:
             if agent.species['diet'] == "herbivore" and agent.alive:
+                print("Agent killed herbivore")
                 agent.alive = False
                 self.starvation_days = 0
                 self.meat_calories += agent.meat_calories * 0.5
                 return 10
             elif not agent.alive and agent.meat_calories > 100:
+                print("Agent eating dead herbivore")
                 self.starvation_days = 0
                 self.meat_calories += agent.meat_calories * 0.5
                 agent.meat_calories *= 0.5
@@ -303,6 +307,9 @@ class Agent:
             else:
                 self.starvation_days += 1
                 return -5
+        if(len(nearby_agents)==0):
+            self.starvation_days += 1
+            return -5
         return 0
     def decay(self):
         self.meat_calories -= self.meat_calories * self.decay_rate
