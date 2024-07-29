@@ -143,9 +143,13 @@ class Map:
             agent.draw(screen)
 
     def simulate_agents(self):
+        reward = 0
         for agent in self.agents:
-            agent.update()
+            agent_reward = agent.update()
+            if(agent.species['diet'] == "carnivore"):
+                reward = agent_reward
         self.agents = [agent for agent in self.agents if agent.alive or agent.meat_calories > 0]
+        return reward
 
 class ResourceBlock:
     def __init__(self, x, y, regen_rate):
@@ -203,11 +207,12 @@ class Agent:
             if self.species['diet'] == "herbivore":
                 self.feed_plant()
             else:
-                self.feed_meat()
+                return self.feed_meat()
             if self.age > self.species['age_at_first_birth'] and self.starvation_days < 10 and random.random() < 0.01:
                 self.reproduce()
             if(self.species['diet'] == "herbivore"):
                 self.move()
+        return 0
 
     def move(self):
         if not self.alive:
@@ -289,15 +294,16 @@ class Agent:
                 agent.alive = False
                 self.starvation_days = 0
                 self.meat_calories += agent.meat_calories * 0.5
-                break
-            elif not agent.alive and agent.meat_calories > 0:
+                return 10
+            elif not agent.alive and agent.meat_calories > 100:
                 self.starvation_days = 0
                 self.meat_calories += agent.meat_calories * 0.5
                 agent.meat_calories *= 0.5
-                break
-        else:
-            self.starvation_days += 1
-
+                return agent.meat_calories/2700
+            else:
+                self.starvation_days += 1
+                return -5
+        return 0
     def decay(self):
         self.meat_calories -= self.meat_calories * self.decay_rate
 
@@ -332,9 +338,10 @@ class CarnivoreEnv(gym.Env):
         for i, agent in enumerate(self.carnivores):
             self.perform_action(agent, actions[i])
 
-        self.simmap.simulate_agents()
+        fresh_kill_reward = self.simmap.simulate_agents()
         obs = self.render(mode='rgb_array')
         reward = self.calculate_reward()
+        reward += fresh_kill_reward
         done = self.current_step >= self.max_steps  # Example termination condition
         truncated = False
         info = {}
