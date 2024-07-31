@@ -8,7 +8,7 @@ from gymnasium import spaces
 
 # Initialize pygame
 pygame.init()
-SIZE = 400
+SIZE = 100
 # Define constants
 WIDTH, HEIGHT = SIZE, SIZE
 WHITE = (255, 255, 255)
@@ -16,7 +16,6 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
-DECAY_RATE = 0.01  # Rate at which dead bodies decay
 MIN_AGENTS = 1  # Minimum number of agents to spawn
 # Define regions
 regions = {
@@ -55,7 +54,7 @@ species_ref = {
 
 class Map:
     def __init__(self, seed):
-        self.size = 200
+        self.size = 50
         self.pixels = SIZE
         self.scale = self.pixels / self.size
         self.noise_scale = 3.0
@@ -66,16 +65,15 @@ class Map:
         self.agents = []
         self.seed = seed
         random.seed(seed)
+        self.carnivores = []
         self.init_resource_generation()
         self.init_agents()
-
-    def draw(self, screen):
-        world = np.zeros((self.pixels, self.pixels))
+        self.world = np.zeros((self.pixels, self.pixels))
 
         for i in range(self.pixels):
             for j in range(self.pixels):
                 nx, ny = i / self.pixels - 0.5, j / self.pixels - 0.5
-                world[i][j] = noise.pnoise2(nx * self.noise_scale,
+                self.world[i][j] = noise.pnoise2(nx * self.noise_scale,
                                             ny * self.noise_scale,
                                             octaves=self.octaves,
                                             persistence=self.persistence,
@@ -84,18 +82,16 @@ class Map:
                                             repeaty=self.pixels,
                                             base=self.seed)
 
+    def draw(self, screen):
         for i in range(self.pixels):
             for j in range(self.pixels):
-                value = world[i][j]
-                region = self.get_region(value)
-                color = regions[region]["color"]
-                screen.set_at((i, j), color)
+                screen.set_at((i, j), (0, 0, 0))
 
-    def get_region(self, value):
-        for region, properties in regions.items():
-            if properties["altitude_range"][0] <= value < properties["altitude_range"][1]:
-                return region
-        return "ocean"
+    # def get_region(self, value):
+    #     for region, properties in regions.items():
+    #         if properties["altitude_range"][0] <= value < properties["altitude_range"][1]:
+    #             return region
+    #     return "ocean"
 
     def init_resource_generation(self):
         self.resource_blocks = []
@@ -109,8 +105,10 @@ class Map:
         for species in species_ref:
             number = MIN_AGENTS
             if species_ref[species]["diet"] == "herbivore":
-                number = MIN_AGENTS*100
+                number = MIN_AGENTS*25
             self.spawn_agents(species, number)
+        self.carnivores = [agent for agent in self.agents if agent.species['diet'] == 'carnivore']
+        print(f"Number of carnivores: {len(self.carnivores)}")
 
     def spawn_agents(self, species, number):
         for _ in range(number):
@@ -123,8 +121,7 @@ class Map:
         while True:
             x = random.randint(0, self.pixels - 1)
             y = random.randint(0, self.pixels - 1)
-            if self.get_region(self.get_noise_value(x, y)) != "ocean":
-                return [x, y]
+            return [x, y]
 
     def get_noise_value(self, x, y):
         nx, ny = x / self.pixels - 0.5, y / self.pixels - 0.5
@@ -142,13 +139,12 @@ class Map:
         for agent in self.agents:
             agent.draw(screen)
 
-    def simulate_agents(self):
+    def simulate_agents_and_return_reward(self):
         reward = 0
-        for agent in self.agents:
-            agent_reward = agent.update()
-            if(agent.species['diet'] == "carnivore"):
-                reward = agent_reward
-        self.agents = [agent for agent in self.agents if agent.alive or agent.meat_calories > 0]
+        for agent in self.carnivores:
+            agent_reward = agent.update_and_return_reward()
+            reward = agent_reward
+        self.agents = [agent for agent in self.agents if agent.alive]
         return reward
 
 class ResourceBlock:
@@ -165,29 +161,13 @@ class Agent:
         self.safe_to_delete = False
         self.species = species_ref
         self.simmap = simmap
-        self.age = 0  # Start all agents at age 0
-        self.max_age = self.species['max_longevity'] * 30 * random.uniform(0.5, 1)
         self.starvation_days = 0
         self.location = [0, 0]
-        self.sex = "male" if random.random() > 0.5 else "female"
-        self.move_distance = math.sqrt(self.species['home_range']) * 0.5
-        self.move_distance_in_pixels = self.move_distance * 0.5
-        self.last_reproduce = 100000
-        self.meat_calories = self.species['adult_body_mass'] * 1500
-        self.decay_rate = DECAY_RATE
+        self.move_distance_in_pixels = 1
 
     def draw(self, screen):
         if not self.alive:
-            decay_factor = self.meat_calories / (self.species['adult_body_mass'] * 1500)
-            alpha = max(0, int(decay_factor * 255))
-            color = (0, 0, 0, alpha)
-
-            temp_surface = pygame.Surface((4, 4), pygame.SRCALPHA)
-            temp_surface.set_alpha(alpha)
-            temp_surface.fill((0, 0, 0, 0))
-            pygame.draw.circle(temp_surface, (0, 0, 0), (2, 2), 2)
-            screen.blit(temp_surface, (int(self.location[0]) - 2, int(self.location[1]) - 2))
-
+            pass
         elif self.species['diet'] == "herbivore":
             color = GREEN
             pygame.draw.circle(screen, color, (int(self.location[0]), int(self.location[1])), 2)
@@ -195,47 +175,19 @@ class Agent:
             color = RED
             pygame.draw.circle(screen, color, (int(self.location[0]), int(self.location[1])), 2)
 
-    def update(self):
-        self.age += 1
-        # if self.age > self.max_age or self.starvation_days > 30:
-        #     self.alive = False
-        if self.starvation_days > 30:
-            print("Agent died due to starvation")
-            self.alive = False
-        if not self.alive:
-            self.decay()
-
-        if self.alive:
-            if self.species['diet'] == "herbivore":
-                self.feed_plant()
-            else:
-                return self.feed_meat()
-            if self.age > self.species['age_at_first_birth'] and self.starvation_days < 10 and random.random() < 0.01:
-                self.reproduce()
-            if(self.species['diet'] == "herbivore"):
-                self.move()
-        return 0
-
-    def move(self):
-        if not self.alive:
-            return
-
-        # for _ in range(10):  # Try up to 10 times to find a valid move
-        #     angle = random.uniform(0, 2 * math.pi)
-        #     new_x = self.location[0] + math.cos(angle) * self.move_distance_in_pixels
-        #     new_y = self.location[1] + math.sin(angle) * self.move_distance_in_pixels
-
-        #     if new_x < 0 or new_x >= WIDTH:
-        #         continue
-        #     if new_y < 0 or new_y >= HEIGHT:
-        #         continue
-
-        #     new_x = max(0, min(WIDTH-1, new_x))
-        #     new_y = max(0, min(HEIGHT-1, new_y))
-
-        #     if self.simmap.get_region(self.simmap.get_noise_value(int(new_x), int(new_y))) != "ocean":
-        #         self.location = [new_x, new_y]
-        #         break
+    def update_and_return_reward(self):
+        reward = 0
+        nearby_agents, nearest_agent_dist = self.find_nearby_agents(10)
+        if (len(nearby_agents)==0):
+            self.starvation_days += 1
+            #reward += -1*nearest_agent_dist
+        else:
+            for agent in nearby_agents:
+                if agent.species['diet'] == "herbivore" and agent.alive:
+                    agent.alive = False
+                    reward += 100 #- self.starvation_days
+                    self.starvation_days = 0
+        return reward
 
     def move_up(self):
         self._move_direction(0, -1)
@@ -273,49 +225,20 @@ class Agent:
 
         new_x = max(0, min(WIDTH-1, new_x))
         new_y = max(0, min(HEIGHT-1, new_y))
-
-        if self.simmap.get_region(self.simmap.get_noise_value(int(new_x), int(new_y))) != "ocean":
-            self.location = [new_x, new_y]
+        
+        self.location = [new_x, new_y]
 
     def find_nearby_agents(self, distance):
         nearby_agents = []
+        nearest_agent_dist = 1000000
         for agent in self.simmap.agents:
-            if agent is not self and (agent.alive or agent.meat_calories > 0):
+            if agent is not self and (agent.alive):
                 dist = math.sqrt((self.location[0] - agent.location[0])**2 + (self.location[1] - agent.location[1])**2)
                 if dist <= distance:
                     nearby_agents.append(agent)
-        return nearby_agents
-
-    def feed_plant(self):
-        pass
-
-    def feed_meat(self):
-        nearby_agents = self.find_nearby_agents(10)
-        for agent in nearby_agents:
-            if agent.species['diet'] == "herbivore" and agent.alive:
-                print("Agent killed herbivore")
-                agent.alive = False
-                self.starvation_days = 0
-                self.meat_calories += agent.meat_calories * 0.5
-                return 10
-            elif not agent.alive and agent.meat_calories > 100:
-                print("Agent eating dead herbivore")
-                self.starvation_days = 0
-                self.meat_calories += agent.meat_calories * 0.5
-                agent.meat_calories *= 0.5
-                return agent.meat_calories/2700
-            else:
-                self.starvation_days += 1
-                return -5
-        if(len(nearby_agents)==0):
-            self.starvation_days += 1
-            return -5
-        return 0
-    def decay(self):
-        self.meat_calories -= self.meat_calories * self.decay_rate
-
-    def reproduce(self):
-        pass
+                if dist < nearest_agent_dist:
+                    nearest_agent_dist = dist
+        return (nearby_agents, nearest_agent_dist)
 
 class CarnivoreEnv(gym.Env):
     def __init__(self):
@@ -323,56 +246,62 @@ class CarnivoreEnv(gym.Env):
         self.seed = random.randint(0, 1000000)
         self.simmap = Map(self.seed)
         self.carnivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'carnivore']
+        self.herbivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'herbivore']
         self.action_space = spaces.Discrete(8 * len(self.carnivores))  # 8 possible movement directions for each carnivore agent
         self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3), dtype=np.uint8)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        self.max_steps = 1000
+        self.max_steps = 6000
         self.current_step = 0
+        self.total_reward = 0
 
     def reset(self, seed=None, options=None):
-        self.simmap = Map(self.seed)
+        # self.simmap = Map(self.seed) # To keep the same map for all episodes.
+        self.simmap = Map(random.randint(0, 1000000))
         self.carnivores = [agent for agent in self.simmap.agents if agent.species['diet'] == 'carnivore']
+        with open("no_decay_attack_only_step.txt", "a") as f:
+            f.write(str(self.current_step) + "\n")
         self.current_step = 0
+        with open("no_decay_attack_only_reward.txt", "a") as f:
+            f.write(str(self.total_reward) + "\n")
+        self.total_reward = 0
         obs = self.render(mode='rgb_array')
         return obs, {}
 
     def step(self, action):
         self.current_step += 1
-        print(f"Step: {self.current_step}")
 
         actions = self.decode_action(action)
         
         for i, agent in enumerate(self.carnivores):
             self.perform_action(agent, actions[i])
 
-        fresh_kill_reward = self.simmap.simulate_agents()
+        fresh_kill_reward = self.simmap.simulate_agents_and_return_reward()
         obs = self.render(mode='rgb_array')
-        reward = self.calculate_reward()
-        reward += fresh_kill_reward
-        done = self.current_step >= self.max_steps  # Example termination condition
-        truncated = False
-        info = {}
+        reward =0
         
-        # Print the state of carnivores
-        # for agent in self.carnivores:
-        #     print(f"Carnivore alive: {agent.alive}, location: {agent.location}, meat_calories: {agent.meat_calories}")
-
-        # Check if all carnivores are dead (Optional: if you want to terminate on this condition)
-        if all(not agent.alive for agent in self.carnivores):
+        if self.current_step > 1000:
+            reward = (fresh_kill_reward)/(self.current_step/1000)
+        else:
+            reward = fresh_kill_reward
+        # step_penalty = -0.01 * self.current_step  # Add a small penalty for each step
+        # reward += step_penalty
+        done = False
+        truncated = False
+        if self.current_step >= self.max_steps:
             done = True
-            # print("All carnivores are dead.")
-
+        info = {}
+        total_herbivores_alive = 0
+        for agent in self.simmap.agents:
+            if agent.species['diet'] == 'herbivore' and agent.alive:
+                total_herbivores_alive += 1
+        if (self.current_step % 100 == 0):
+            print(f"Total herbivores alive: {total_herbivores_alive}", f"Step: {self.current_step}", f"Reward: {reward}")
+        if total_herbivores_alive == 0:
+            done = True
+            reward += 1000  # Large bonus for completing the task
+        self.total_reward += 50-total_herbivores_alive
+        self.total_reward += reward
         return obs, reward, done, truncated, info
-
-    def calculate_reward(self):
-        # Reward logic for carnivores:
-        reward = 0
-        for carnivore in self.carnivores:
-            nearby_agents = carnivore.find_nearby_agents(10)
-            for nearby_agent in nearby_agents:
-                if nearby_agent.species['diet'] == 'herbivore' and not nearby_agent.alive:
-                    reward += 1  # Reward for each herbivore hunted by carnivores
-        return reward
 
     def decode_action(self, action):
         actions = []
@@ -402,7 +331,6 @@ class CarnivoreEnv(gym.Env):
             agent.move_down_right()
 
     def render(self, mode='human'):
-        # print (mode)
         self.simmap.draw(self.screen)
         self.simmap.draw_agents(self.screen)
         pygame.display.flip()
